@@ -1,0 +1,13 @@
+{
+ "models": [
+  "xgb",
+  "xgb_nograph",
+  "xgb_noenv",
+  "naive"
+ ],
+ "benchmarks": {},
+ "ensemble": null,
+ "n_base_rows": 34050,
+ "n_common_rows": 34050,
+ "note": "every model scored on the same rows (all models have a score); WIS on case counts"
+}

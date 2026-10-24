@@ -60,6 +60,6 @@ echo        save to data\raw\psgc\
 echo    - DOH NHFR facility list   https://nhfr.doh.gov.ph/rfacilities2list.php
 echo        save to data\raw\nhfr\
 echo.
-echo  Then open notebooks\00_data_eda.ipynb with the "Python (bantay-baha)" kernel.
+echo  Then run build.bat to train the models and compute every result.
 echo ============================================================
 endlocal

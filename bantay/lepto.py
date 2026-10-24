@@ -16,6 +16,7 @@ Data
             the literal reading D + 6 is a sensitivity fit (it shortens every lag by one week). Only these 12 cities: never read as provincial or national.
   rain      CHIRPS v2.0 daily -> week (Mon-Sun) sum. National = area-weighted mean of the panel's unit-week chirps_7d
             (85 units = PHL land); city = mean over CHIRPS cells in the COD-AB ADM3 polygon (nearest land cell if none).
+            Sensitivity: the city model refit with GPM IMERG V07 instead (coarser 0.1 deg cells, satellite only).
   typhoon   national: population share of units in any IBTrACS gale swath that week (panel storm_gale_hit);
             city: city polygon inside any gale circle that week (`storms.unit_week_exposure`, every WP storm).
 
@@ -45,6 +46,8 @@ CCHAIN = RAW / "cchain"
 DENGUE = RAW / "dengue_hdx" / "doh-epi-dengue-data-2016-2021.csv"
 SUMMARY = PROCESSED / "lepto_summary.md"
 CITY_RAIN = INTERIM / "lepto_city_chirps_week.parquet"
+CITY_RAIN_IMERG = INTERIM / "lepto_city_imerg_week.parquet"
+IMERG_VARIANT = "IMERG rain (instead of CHIRPS)"  # city sensitivity fit with the second rain product
 
 LAGS = list(range(7))
 RAIN_PER = 50.0  # mm per week: one IRR unit
@@ -168,20 +171,25 @@ def city_polygons():
     return g.rename(columns={"adm3_pcode": "unit_id"}).reset_index(drop=True)
 
 
-def city_rain(cities):
-    """CHIRPS week (Mon-Sun) rain per city: week, adm3_pcode, chirps_7d, chirps_3d, chirps_max1d. Cached in interim."""
+def city_rain(cities, source="chirps"):
+    """Week (Mon-Sun) rain per city: week, adm3_pcode, {source}_7d, _3d, _max1d. source "chirps" (the main analysis) or
+    "imerg" (the sensitivity fit: a second, independent rain product). Cached in interim."""
     from . import rain
     from .panel import cached
     from .units import COD_ZIP
 
-    def build():
-        d = rain.chirps_daily_units(cities)
-        return None if d is None else rain.weekly(d, "chirps").rename(columns={"unit_id": "adm3_pcode"})
+    daily = {"chirps": rain.chirps_daily_units, "imerg": rain.imerg_daily_units}[source]
 
-    files = sorted(rain.CHIRPS_DIR.glob("*.nc"))
+    def build():
+        d = daily(cities)
+        return None if d is None else rain.weekly(d, source).rename(columns={"unit_id": "adm3_pcode"})
+
+    folder, pat = (rain.CHIRPS_DIR, "*.nc") if source == "chirps" else (rain.IMERG_DIR, "*.tif")
+    files = sorted(folder.glob(pat))
     if not files:
-        return missing("chirps", f"no CHIRPS files in {rain.CHIRPS_DIR}")
-    return cached(CITY_RAIN, files + [COD_ZIP, CCHAIN / "disease_pidsr_totals.csv"], build)
+        return missing(source, f"no {source.upper()} files in {folder}")
+    cache = CITY_RAIN if source == "chirps" else CITY_RAIN_IMERG
+    return cached(cache, files + [COD_ZIP, CCHAIN / "disease_pidsr_totals.csv"], build)
 
 
 def city_storms(cities, ib):
@@ -340,6 +348,8 @@ def national(panel, units):
             except Exception as e:  # noqa: BLE001
                 print(f"  national {vname} {exp}: fit failed ({e})")
     tab = pd.DataFrame(rows)
+    if tab.empty:  # every fit failed (warnings above): skip the national table rather than crash the stage
+        return missing("lepto_national", "no national leptospirosis model could be fitted (see the warnings above)"), None
     tab["irr_unit"] = tab.exposure.map({"rain_7d": f"+{RAIN_PER:g} mm/week national rain", "rain_pop_7d": f"+{RAIN_PER:g} mm/week population-weighted rain", "heavy": f"heavy-rain week (>= p{HEAVY_Q * 100:g} = {q:.0f} mm)",
                                         "gale_pop_share": "whole population in a gale swath (share 0 -> 1)"})
     tab["spec"] = "NB2; const + covid(>=2020-03-15) + 2 harmonics (doy) + exposure lag(s); HAC(4) SE"
@@ -351,12 +361,13 @@ def national(panel, units):
 
 # ---------------------------------------------------------------- 2. cities
 
-def city_panel(cities, ib, label_days=CCHAIN_LABEL_DAYS):
+def city_panel(cities, ib, label_days=CCHAIN_LABEL_DAYS, rain_source="chirps"):
     lep = cchain_weekly(label_days=label_days)
-    rn = city_rain(cities)
+    rn = city_rain(cities, rain_source)
     if lep is None or rn is None:
         return None
-    rn = rn[["adm3_pcode", "week", "chirps_7d", "chirps_max1d"]].rename(columns={"chirps_7d": "rain_7d", "chirps_max1d": "rain_max1d"})
+    s = rain_source
+    rn = rn[["adm3_pcode", "week", f"{s}_7d", f"{s}_max1d"]].rename(columns={f"{s}_7d": "rain_7d", f"{s}_max1d": "rain_max1d"})
     weeks = pd.date_range(rn.week.min(), rn.week.max(), freq="W-SUN")
     grid = pd.MultiIndex.from_product([cities.unit_id, weeks], names=["adm3_pcode", "week"]).to_frame(index=False)
     d = grid.merge(rn, on=["adm3_pcode", "week"], how="left")
@@ -414,6 +425,10 @@ def cities_analysis(cities, ib):
     if alt is not None:
         dm3, base3 = city_lags(alt[0], cities)
         rows += lag_profile(dm3, base3, "rain_7d", RAIN_PER, "DK", time_col="t", variant="literal CCHAIN week (date+6)", analysis="city")
+    im = city_panel(cities, ib, rain_source="imerg")  # a second rain product: does the lag pattern hold?
+    if im is not None:
+        dm5, base5 = city_lags(im[0], cities)
+        rows += lag_profile(dm5, base5, "rain_7d", RAIN_PER, "DK", time_col="t", variant=IMERG_VARIANT, analysis="city")
     tab = pd.DataFrame(rows)
     tab["irr_unit"] = tab.exposure.map({"rain_7d": f"+{RAIN_PER:g} mm/week city rain", "heavy": f"heavy-rain week (>= city p{HEAVY_Q * 100:g})",
                                         "storm_gale_hit": "city inside a gale circle that week"})
@@ -572,6 +587,11 @@ def _fmt(r):
 
 def run():
     """Whole stage: writes data/processed/app/lepto_*.csv / .parquet and data/processed/lepto_summary.md."""
+    try:  # every model here is a statsmodels count model: without it, skip the stage with a warning
+        import statsmodels.api  # noqa: F401
+    except ImportError:
+        missing("lepto", "statsmodels is not installed (pip install -r requirements.txt): leptospirosis analysis skipped")
+        return None, None, None
     from .panel import load_panel
     from .units import load_units
     from .storms import load_ibtracs
@@ -760,7 +780,7 @@ def write_summary(nat, nat_series, city, d, ev, did, summ, rr, al, cities):
               "**Rain (+50 mm/week city CHIRPS):**", "", _lag_md(city, "12 cities", "rain_7d"), "",
               "**Heavy-rain week (>= the city's own 90th percentile):**", "", _lag_md(city, "12 cities", "heavy"), "",
               "**City inside a gale circle (any WP storm) that week:**", "", _lag_md(city, "12 cities", "storm_gale_hit"), ""]
-        for v in ("city-specific seasonality", "11 cities (no Iloilo)", "literal CCHAIN week (date+6)"):
+        for v in ("city-specific seasonality", "11 cities (no Iloilo)", "literal CCHAIN week (date+6)", IMERG_VARIANT):
             t = city[(city.variant == v) & (city.model == "single")].set_index("lag")
             if len(t):
                 L.append(f"- {v}, rain single lags: " + ", ".join(f"{k}: {_fmt(t.loc[k])}" for k in LAGS))

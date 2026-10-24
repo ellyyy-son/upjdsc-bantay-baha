@@ -30,10 +30,8 @@ networkx==3.7
 scipy==1.18.1
 scikit-learn==1.9.1
 scikit-image==0.26.0
+statsmodels==0.15.0
 tigramite==5.2.10.1
 streamlit==1.66.1
 plotly==7.1.0
 markdown==3.11.2
-pytest==9.1.1
-pytest-playwright==0.10.0
-playwright==1.64.1

@@ -1,12 +1,53 @@
 {
  "xgb": {
-  "brier": 0.0893075368728266,
+  "brier": 0.0892371697069533,
   "base_rate": 0.3154411764705882,
   "brier_climatology": 0.2159380406574394
  },
  "xgb_nograph": {
-  "brier": 0.0893824816134033,
+  "brier": 0.08929675892382799,
   "base_rate": 0.3154411764705882,
   "brier_climatology": 0.2159380406574394
+ },
+ "calibrated": {
+  "model": "xgb",
+  "method": "isotonic regression of the observed surge on raw R, expanding window over past rolling-origin forecasts with target_week <= origin; raw R kept until CAL_MIN_ROWS past outcomes",
+  "min_rows": 850,
+  "n_scored": 8160,
+  "n_uncalibrated": 1105,
+  "uncalibrated_origins": [
+   "2018-01-07",
+   "2018-01-14",
+   "2018-01-21",
+   "2018-01-28",
+   "2018-02-04",
+   "2018-02-11",
+   "2018-02-18",
+   "2018-02-25",
+   "2018-03-04",
+   "2018-03-11",
+   "2018-03-18",
+   "2018-03-25",
+   "2018-04-01"
+  ],
+  "first_calibrated_origin": "2018-04-08",
+  "all_rows": {
+   "n": 8160,
+   "base_rate": 0.3154411764705882,
+   "mean_R_raw": 0.2541366262900795,
+   "mean_R_cal": 0.3093960376421757,
+   "brier_raw": 0.0892371697069533,
+   "brier_cal": 0.08231173357607972,
+   "brier_climatology": 0.2159380406574394
+  },
+  "calibrated_rows": {
+   "n": 7055,
+   "base_rate": 0.35917788802267897,
+   "mean_R_raw": 0.28625731868391857,
+   "mean_R_cal": 0.35017181856104196,
+   "brier_raw": 0.09996754616996897,
+   "brier_cal": 0.09195740317522363,
+   "brier_climatology": 0.23016913277824683
+  }
  }
 }

@@ -4,8 +4,8 @@ Early warning for flood-linked disease after a typhoon. For any typhoon track, B
 by **where dengue is likely to surge** and **who will lose their road or ferry route to a hospital**, and turns the two
 into an action: deploy mobile clinics, pre-position supplies, or monitor sentinel sites.
 
-This package has the dashboard, the pre-computed results it shows, all the code that produced them, and the
-documents (report, slides, demo scripts, code guide). Everything runs on open data.
+This package has the dashboard, the pre-computed results it shows, and all the code that produced them. Everything
+runs on open data.
 
 ---
 
@@ -66,7 +66,7 @@ supplies when R >= 0.3, or A >= 10% with R >= 0.15; otherwise **monitor** sentin
 | **Provinces** | The full ranked table: R (and R before calibration), A with its method range, expected cases for the next 4 weeks with a 90% range, people cut off (all, under 5, aged 60+), sentinel and community, and the main drivers of the risk. Hover a column header for its definition; **Download table (CSV)** saves it. |
 | **Municipalities** | Pick a province to see its towns and cities: people cut off and, where radar saw it, people in new floodwater. Tells you where a mobile clinic should go. |
 | **Outbreak graph** | Which provinces' dengue rises before others' (lead-lag links), the sentinel provinces to watch first, and groups that move together. |
-| **Forecast skill** | How good the forecast was in two years of real-time-style tests: the model against a seasonal baseline and three benchmark models, calibration of R, and forecast ranges for any province, 1-4 weeks ahead. |
+| **Forecast skill** | How good the forecast was in two years of real-time-style tests: the model against "same week last year" (and three benchmark models, when they are included), calibration of R, and forecast ranges for any province, 1-4 weeks ahead. |
 | **Leptospirosis** | How many weeks after heavy rain leptospirosis cases rise, in 12 cities and nationally, and whether cities inside a typhoon's swath saw more cases. |
 | **Validation** | Did high-priority provinces really surge afterwards; how much the two access methods agree; whether the ranking changes when the settings change; a Metro Manila benchmark against a published study. |
 | **Data & caveats** | The limits of the current scenario, which inputs were available for this run, and the storm catalogue (which storms are included and why others were skipped). |
@@ -83,18 +83,12 @@ Hover any point on a map or chart for its values. Light and dark mode follow you
 | `install.bat`, `run_app.bat` | Install the environment; start the dashboard. |
 | `download_data.bat`, `build.bat` | Rebuild everything from the original open sources (section 4). |
 | `requirements.txt` | Every Python package, pinned to the versions the results were made with. |
-| `requirements-bench.txt` | Optional, heavy: only for re-running the benchmark models (Chronos-2, TabPFN-TS, MPNN-LSTM). |
 | `app/` | The dashboard (Streamlit). |
 | `bantay/` | The library: units, dengue, storms, rain, rivers, flood, population grids, panel, lead-lag graph, forecast, access, scenarios, leptospirosis. |
-| `scripts/` | `build.py` (the pipeline), the download scripts, the benchmark scripts and the document generators. |
-| `tests/` | The test suite (`python -m pytest tests`). |
+| `scripts/` | `build.py` (the pipeline that trains the models and computes every result) and the two download scripts. |
 | `data/processed/app/` | The pre-computed results the dashboard reads; `data/processed/status.json` lists the inputs each run had. |
 | `data/raw/MANIFEST.csv` | Every raw file the results were built from, with its source URL, size and checksum. |
 | `data/crosswalks/` | The reviewed tables that map the dengue reporting units to 2016-2020 provinces. |
-| `docs/results/` | Evaluation report, slide deck, demonstration and technical demo scripts, code guides (PDF). |
-| `docs/CODE_GUIDE.md` | A walkthrough of every file and code block. |
-| `notebooks/00_data_eda.ipynb` | The raw-data checks (coverage, gaps, units, join keys). |
-| `README_DEVELOPERS.md` | The full developer README: sources, pipeline stages, outputs, testing. |
 
 ---
 
@@ -105,8 +99,9 @@ The raw data (about 7 GB from 22 open sources) are not in this package; they are
 1. `download_data.bat` downloads the open sources into `data/raw/` and checks them against `MANIFEST.csv`.
    `download_data.bat <your-earth-engine-project>` also pulls the Google Earth Engine sources (Sentinel-1 flood maps,
    IMERG rain, the travel-time raster); it needs a free Earth Engine project and `earthengine authenticate` first.
-2. Two sources block scripted downloads and are saved by hand (links in `README_DEVELOPERS.md`): the PSA PSGC code list
-   (`data/raw/psgc/`) and the DOH National Health Facility Registry (`data/raw/nhfr/`). Without NHFR, hospitals come
+2. Two sources block scripted downloads and are saved by hand: the PSA PSGC code list
+   (<https://psa.gov.ph/classification/psgc>, Excel, into `data/raw/psgc/`) and the DOH National Health Facility
+   Registry (<https://nhfr.doh.gov.ph/rfacilities2list.php>, export into `data/raw/nhfr/`). Without NHFR, hospitals come
    from OpenStreetMap and UP NOAH.
 3. `build.bat` runs the whole pipeline and rewrites `data/processed/`. Inputs that are missing are skipped with a
    warning and listed in `status.json`; nothing is ever filled with made-up data. Re-run after they arrive.
